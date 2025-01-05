@@ -1,0 +1,61 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+
+// Constants for block sizes
+#define BLOCK_SIZE_64 64
+#define BLOCK_SIZE_128 128
+#define RB_64 0x1B
+#define RB_128 0x87
+
+// Function to apply a block cipher (mocked for simplicity)
+void block_cipher(uint8_t *input, uint8_t *output, int block_size) {
+    // For demonstration, the "block cipher" simply outputs the input as-is
+    memcpy(output, input, block_size / 8);
+}
+
+// Function to left shift a block and apply conditional XOR
+void generate_subkey(uint8_t *input, uint8_t *output, int block_size, uint8_t rb) {
+    int block_bytes = block_size / 8;
+    int carry = (input[0] & 0x80) ? 1 : 0; // Check if the most significant bit is 1
+
+    // Perform left shift
+    for (int i = 0; i < block_bytes; i++) {
+        output[i] = (input[i] << 1) | (i + 1 < block_bytes ? (input[i + 1] >> 7) : 0);
+    }
+
+    // Conditionally XOR with RB
+    if (carry) {
+        output[block_bytes - 1] ^= rb;
+    }
+}
+
+int main() {
+    int block_size = BLOCK_SIZE_128; // Change to BLOCK_SIZE_64 for 64-bit
+    uint8_t rb = (block_size == BLOCK_SIZE_64) ? RB_64 : RB_128;
+
+    uint8_t zero_block[16] = {0};       // All-zero block (16 bytes for 128-bit)
+    uint8_t L[16] = {0};                // Output of block cipher
+    uint8_t K1[16] = {0}, K2[16] = {0}; // Subkeys
+
+    // Step 1: Apply block cipher to all-zero block
+    block_cipher(zero_block, L, block_size);
+
+    // Step 2: Generate K1
+    generate_subkey(L, K1, block_size, rb);
+    printf("K1: ");
+    for (int i = 0; i < block_size / 8; i++) {
+        printf("%02X ", K1[i]);
+    }
+    printf("\n");
+
+    // Step 3: Generate K2
+    generate_subkey(K1, K2, block_size, rb);
+    printf("K2: ");
+    for (int i = 0; i < block_size / 8; i++) {
+        printf("%02X ", K2[i]);
+    }
+    printf("\n");
+
+    return 0;
+}
