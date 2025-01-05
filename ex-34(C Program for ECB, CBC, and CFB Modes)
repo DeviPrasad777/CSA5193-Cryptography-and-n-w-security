@@ -1,0 +1,115 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#define BLOCK_SIZE 8 // 8 bytes (64 bits)
+
+// Function to apply a simple XOR-based block cipher for demonstration
+void simple_block_cipher(uint8_t *input, uint8_t *key, uint8_t *output) {
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+        output[i] = input[i] ^ key[i];
+    }
+}
+
+// Padding function
+int pad(uint8_t *plaintext, int plaintext_len) {
+    int padding_len = BLOCK_SIZE - (plaintext_len % BLOCK_SIZE);
+    for (int i = plaintext_len; i < plaintext_len + padding_len; i++) {
+        plaintext[i] = (i == plaintext_len) ? 0x80 : 0x00; // Add 1 bit followed by 0s
+    }
+    return plaintext_len + padding_len;
+}
+
+// ECB Mode
+void ecb_encrypt(uint8_t *plaintext, int length, uint8_t *key, uint8_t *ciphertext) {
+    for (int i = 0; i < length; i += BLOCK_SIZE) {
+        simple_block_cipher(&plaintext[i], key, &ciphertext[i]);
+    }
+}
+
+void ecb_decrypt(uint8_t *ciphertext, int length, uint8_t *key, uint8_t *plaintext) {
+    for (int i = 0; i < length; i += BLOCK_SIZE) {
+        simple_block_cipher(&ciphertext[i], key, &plaintext[i]); // XOR again for decryption
+    }
+}
+
+// CBC Mode
+void cbc_encrypt(uint8_t *plaintext, int length, uint8_t *key, uint8_t *iv, uint8_t *ciphertext) {
+    uint8_t temp[BLOCK_SIZE];
+    for (int i = 0; i < length; i += BLOCK_SIZE) {
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            temp[j] = plaintext[i + j] ^ iv[j]; // XOR with IV or previous ciphertext
+        }
+        simple_block_cipher(temp, key, &ciphertext[i]);
+        memcpy(iv, &ciphertext[i], BLOCK_SIZE); // Update IV
+    }
+}
+
+void cbc_decrypt(uint8_t *ciphertext, int length, uint8_t *key, uint8_t *iv, uint8_t *plaintext) {
+    uint8_t temp[BLOCK_SIZE];
+    for (int i = 0; i < length; i += BLOCK_SIZE) {
+        simple_block_cipher(&ciphertext[i], key, temp);
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            plaintext[i + j] = temp[j] ^ iv[j]; // XOR with IV or previous ciphertext
+        }
+        memcpy(iv, &ciphertext[i], BLOCK_SIZE); // Update IV
+    }
+}
+
+// CFB Mode
+void cfb_encrypt(uint8_t *plaintext, int length, uint8_t *key, uint8_t *iv, uint8_t *ciphertext) {
+    uint8_t temp[BLOCK_SIZE];
+    for (int i = 0; i < length; i += BLOCK_SIZE) {
+        simple_block_cipher(iv, key, temp); // Encrypt IV
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            ciphertext[i + j] = plaintext[i + j] ^ temp[j]; // XOR with plaintext
+        }
+        memcpy(iv, &ciphertext[i], BLOCK_SIZE); // Update IV
+    }
+}
+
+void cfb_decrypt(uint8_t *ciphertext, int length, uint8_t *key, uint8_t *iv, uint8_t *plaintext) {
+    uint8_t temp[BLOCK_SIZE];
+    for (int i = 0; i < length; i += BLOCK_SIZE) {
+        simple_block_cipher(iv, key, temp); // Encrypt IV
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            plaintext[i + j] = ciphertext[i + j] ^ temp[j]; // XOR with ciphertext
+        }
+        memcpy(iv, &ciphertext[i], BLOCK_SIZE); // Update IV
+    }
+}
+
+int main() {
+    uint8_t key[BLOCK_SIZE] = {0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F, 0x7A, 0x8B};
+    uint8_t iv[BLOCK_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
+    uint8_t plaintext[64] = "HELLO WORLD! THIS IS A TEST MESSAGE!";
+    uint8_t ciphertext[64] = {0};
+    uint8_t decrypted[64] = {0};
+
+    int plaintext_len = strlen((char *)plaintext);
+    int padded_len = pad(plaintext, plaintext_len);
+
+    printf("Original Plaintext: %s\n", plaintext);
+
+    // ECB Mode
+    ecb_encrypt(plaintext, padded_len, key, ciphertext);
+    ecb_decrypt(ciphertext, padded_len, key, decrypted);
+    printf("ECB Decrypted: %s\n", decrypted);
+
+    // CBC Mode
+    memcpy(iv, (uint8_t[]){0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, BLOCK_SIZE); // Reset IV
+    cbc_encrypt(plaintext, padded_len, key, iv, ciphertext);
+    memcpy(iv, (uint8_t[]){0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, BLOCK_SIZE); // Reset IV
+    cbc_decrypt(ciphertext, padded_len, key, iv, decrypted);
+    printf("CBC Decrypted: %s\n", decrypted);
+
+    // CFB Mode
+    memcpy(iv, (uint8_t[]){0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, BLOCK_SIZE); // Reset IV
+    cfb_encrypt(plaintext, padded_len, key, iv, ciphertext);
+    memcpy(iv, (uint8_t[]){0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, BLOCK_SIZE); // Reset IV
+    cfb_decrypt(ciphertext, padded_len, key, iv, decrypted);
+    printf("CFB Decrypted: %s\n", decrypted);
+
+    return 0;
+}
