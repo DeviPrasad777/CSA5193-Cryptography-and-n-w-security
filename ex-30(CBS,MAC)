@@ -1,0 +1,64 @@
+#include <stdio.h>
+#include <string.h>
+
+// Mock block cipher function (e.g., AES block encryption simulation)
+void block_cipher_encrypt(char *key, char *block, char *output) {
+    for (int i = 0; i < strlen(block); i++) {
+        output[i] = block[i] ^ key[i % strlen(key)]; // Simple XOR-based block cipher
+    }
+    output[strlen(block)] = '\0';
+}
+
+// Function to compute CBC-MAC
+void cbc_mac(char *key, char *message, int block_size, int num_blocks, char *mac) {
+    char current_block[block_size + 1];
+    char xor_result[block_size + 1];
+    char cipher_result[block_size + 1];
+    memset(xor_result, 0, block_size + 1); // Initialize XOR result to zeros
+
+    for (int i = 0; i < num_blocks; i++) {
+        strncpy(current_block, &message[i * block_size], block_size);
+        current_block[block_size] = '\0';
+
+        // XOR current block with previous result
+        for (int j = 0; j < block_size; j++) {
+            xor_result[j] ^= current_block[j];
+        }
+
+        // Encrypt the XOR result
+        block_cipher_encrypt(key, xor_result, cipher_result);
+        strncpy(xor_result, cipher_result, block_size); // Update XOR result for next iteration
+    }
+
+    strncpy(mac, xor_result, block_size); // Final MAC value
+    mac[block_size] = '\0';
+}
+
+int main() {
+    char key[] = "secretkey123"; // Symmetric key
+    char message[] = "BLOCK";   // One-block message
+    int block_size = 5;         // Block size (e.g., 5 characters)
+    char mac[block_size + 1];
+
+    // Compute CBC-MAC for one-block message
+    cbc_mac(key, message, block_size, 1, mac);
+    printf("MAC of one-block message X: %s\n", mac);
+
+    // Adversary constructs two-block message X || (X ⊕ T)
+    char x_xor_t[block_size + 1];
+    for (int i = 0; i < block_size; i++) {
+        x_xor_t[i] = message[i] ^ mac[i]; // Compute X ⊕ T
+    }
+    x_xor_t[block_size] = '\0';
+
+    char two_block_message[2 * block_size + 1];
+    strncpy(two_block_message, message, block_size);        // Append X
+    strncpy(&two_block_message[block_size], x_xor_t, block_size); // Append X ⊕ T
+    two_block_message[2 * block_size] = '\0';
+
+    char two_block_mac[block_size + 1];
+    cbc_mac(key, two_block_message, block_size, 2, two_block_mac);
+    printf("MAC of two-block message X || (X ⊕ T): %s\n", two_block_mac);
+
+    return 0;
+}
