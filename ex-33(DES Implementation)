@@ -1,0 +1,106 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+
+// Example simplified permutation (for demonstration purposes)
+uint64_t initial_permutation(uint64_t input) {
+    // Perform a basic permutation (identity for simplicity)
+    return input; // Identity function for this simplified example
+}
+
+// Simplified expansion permutation
+uint32_t expansion_permutation(uint32_t half_block) {
+    // Return the input as-is for simplicity
+    return half_block;
+}
+
+// Simplified S-Box substitution
+uint32_t s_box_substitution(uint32_t input) {
+    // Return input as-is for this example
+    return input & 0xFFFFFFFF;
+}
+
+// Feistel function
+uint32_t feistel_function(uint32_t half_block, uint64_t subkey) {
+    uint32_t expanded_block = expansion_permutation(half_block);
+    uint32_t xored_block = expanded_block ^ subkey;
+    return s_box_substitution(xored_block);
+}
+
+// Generate subkeys (16 rounds in DES, simplified here)
+void generate_subkeys(uint64_t key, uint64_t subkeys[16]) {
+    for (int i = 0; i < 16; i++) {
+        subkeys[i] = (key << i) ^ (key >> (56 - i)); // Rotate the key for subkey generation
+        subkeys[i] &= 0xFFFFFFFFFFFF; // Truncate to 48 bits
+    }
+}
+
+// Simplified DES encryption function
+uint64_t des_encrypt(uint64_t plaintext, uint64_t key) {
+    uint64_t subkeys[16];
+    generate_subkeys(key, subkeys);
+
+    // Initial Permutation
+    uint64_t permuted_block = initial_permutation(plaintext);
+
+    // Split into left and right halves
+    uint32_t left = (permuted_block >> 32) & 0xFFFFFFFF;
+    uint32_t right = permuted_block & 0xFFFFFFFF;
+
+    // Perform 16 rounds of the Feistel structure
+    for (int round = 0; round < 16; round++) {
+        uint32_t temp = right;
+        right = left ^ feistel_function(right, subkeys[round]);
+        left = temp;
+    }
+
+    // Combine halves (swap order in DES)
+    uint64_t pre_output = ((uint64_t)right << 32) | left;
+
+    // Final Permutation (simplified)
+    return initial_permutation(pre_output);
+}
+
+// Simplified DES decryption function
+uint64_t des_decrypt(uint64_t ciphertext, uint64_t key) {
+    uint64_t subkeys[16];
+    generate_subkeys(key, subkeys);
+
+    // Initial Permutation
+    uint64_t permuted_block = initial_permutation(ciphertext);
+
+    // Split into left and right halves
+    uint32_t left = (permuted_block >> 32) & 0xFFFFFFFF;
+    uint32_t right = permuted_block & 0xFFFFFFFF;
+
+    // Perform 16 rounds of the Feistel structure (reverse order for decryption)
+    for (int round = 15; round >= 0; round--) {
+        uint32_t temp = right;
+        right = left ^ feistel_function(right, subkeys[round]);
+        left = temp;
+    }
+
+    // Combine halves (swap order in DES)
+    uint64_t pre_output = ((uint64_t)right << 32) | left;
+
+    // Final Permutation (simplified)
+    return initial_permutation(pre_output);
+}
+
+int main() {
+    uint64_t plaintext = 0x0123456789ABCDEF; // Example plaintext (64-bit)
+    uint64_t key = 0x133457799BBCDFF1;      // Example key (64-bit, only 56 bits used)
+
+    printf("Plaintext: 0x%016llX\n", plaintext);
+    printf("Key: 0x%016llX\n", key);
+
+    // Encrypt the plaintext
+    uint64_t ciphertext = des_encrypt(plaintext, key);
+    printf("Ciphertext: 0x%016llX\n", ciphertext);
+
+    // Decrypt the ciphertext
+    uint64_t decrypted_text = des_decrypt(ciphertext, key);
+    printf("Decrypted Text: 0x%016llX\n", decrypted_text);
+
+    return 0;
+}
