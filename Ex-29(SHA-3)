@@ -1,0 +1,51 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define ROWS 5
+#define COLUMNS 5
+#define LANE_SIZE 64 // Each lane is 64 bits
+#define BLOCK_SIZE 1024 // Block size in bits
+
+// Function to simulate random bit addition to the lanes
+void add_random_bits(unsigned long long matrix[ROWS][COLUMNS]) {
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLUMNS; j++) {
+            unsigned long long random_bit = (unsigned long long)(rand() % (1ULL << 63));
+            matrix[i][j] ^= random_bit;
+        }
+    }
+}
+
+// Function to check if all capacity lanes have at least one nonzero bit
+int all_lanes_nonzero(unsigned long long matrix[ROWS][COLUMNS]) {
+    for (int i = 2; i < ROWS; i++) { // Capacity lanes are in rows 2-4
+        for (int j = 0; j < COLUMNS; j++) {
+            if (matrix[i][j] == 0) {
+                return 0; // Found a zero lane
+            }
+        }
+    }
+    return 1; // All lanes are nonzero
+}
+
+int main() {
+    // Initialize the internal state matrix
+    unsigned long long state[ROWS][COLUMNS] = {0};
+
+    // Seed the random number generator
+    srand(time(NULL));
+
+    int iterations = 0;
+
+    // Simulate the process until all capacity lanes have at least one nonzero bit
+    while (!all_lanes_nonzero(state)) {
+        add_random_bits(state);
+        iterations++;
+    }
+
+    // Output the results
+    printf("All capacity lanes have at least one nonzero bit after %d iterations.\n", iterations);
+
+    return 0;
+}
